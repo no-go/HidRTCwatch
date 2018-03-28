@@ -21,7 +21,9 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define BUTTON2   A3 //(to -on press)
 #define BUTTON3   A5 //(to -on press)
 #define POTI      A2
-#define SPEAKER   10 // beep on click
+#define SPEAKER   10
+#define LED_BLUE1 12
+#define LED_BLUE2 13
 
 #define LED_WHITE  A0
 #define VIBRATE    11
@@ -41,6 +43,8 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 
 int vccVal;
+bool alarm = false;
+byte tick = 0;
 String keymode = "         ";
 
 //RTCdata data = {40,53,21, 3, 21,03,18}; // (3 == )Mittwoch, 21:53:40 Uhr 21.03.2018 //7=sonntag
@@ -126,6 +130,7 @@ inline void batteryFrame() {
 }
 
 inline void ticking() {
+  tick++;
   WDT->CTRL.reg = 0;
   while(WDT->STATUS.bit.SYNCBUSY);
   WDT->INTENSET.bit.EW   = 1;
@@ -156,6 +161,8 @@ void setup() {
   pinMode(POTI, INPUT);
   pinMode(SPEAKER, OUTPUT);
   pinMode(LED_WHITE, OUTPUT);
+  pinMode(LED_BLUE1, OUTPUT);
+  pinMode(LED_BLUE2, OUTPUT);
   pinMode(VIBRATE, OUTPUT);
     
   Wire.begin();
@@ -321,6 +328,8 @@ void loop() {
     displayOnSec=0;
     batteryBar();
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
+    delay(200);
+    if (digitalRead(BUTTON) == LOW) alarm = !alarm;
   }
 
   Wire.beginTransmission(MPU);
@@ -345,6 +354,28 @@ void loop() {
     oled.fillScreen(BLACK);
     oled.writeCommand(SSD1331_CMD_DISPLAYOFF);
     displayOnSec = -1;
+  }
+  
+  if (alarm == false) {
+    analogWrite(SPEAKER, 0);
+    digitalWrite(LED_WHITE, LOW);
+    digitalWrite(LED_BLUE1, LOW);
+    digitalWrite(LED_BLUE2, LOW);
+    digitalWrite(VIBRATE, LOW); 
+  } else {
+    if (tick%2==0) {
+      analogWrite(SPEAKER, 0);
+      digitalWrite(LED_WHITE, LOW);
+      digitalWrite(LED_BLUE1, HIGH);
+      digitalWrite(LED_BLUE2, LOW);
+      digitalWrite(VIBRATE, LOW);      
+    } else {
+      analogWrite(SPEAKER, 50);
+      digitalWrite(LED_WHITE, HIGH);
+      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(LED_BLUE2, HIGH);
+      digitalWrite(VIBRATE, HIGH);      
+    }
   }
 }
 
