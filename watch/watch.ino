@@ -10,7 +10,7 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define OLED_DC      5
 #define OLED_CS     A4
 #define OLED_RESET   6
-#define WAKEUPACC   15000
+#define WAKEUPACC   23000
 
 #define VBATPIN   A7  // A7 = D9 !!
 
@@ -41,9 +41,11 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #include "DS3231M.h"
 
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
+int last;
 
 int vccVal;
-bool alarm = false;
+int alarm = -1;
+byte fade = 200;
 byte tick = 0;
 String keymode = "         ";
 
@@ -131,6 +133,7 @@ inline void batteryFrame() {
 
 inline void ticking() {
   tick++;
+  if (alarm>0) alarm--;
   WDT->CTRL.reg = 0;
   while(WDT->STATUS.bit.SYNCBUSY);
   WDT->INTENSET.bit.EW   = 1;
@@ -271,9 +274,14 @@ void loop() {
     oled.setTextSize(1);
     oled.setTextColor(WHITE, RED2);
     oled.setCursor(0, 2);
-    oled.print(keymode);
-    
-    oled.setTextColor(YELLOW, BLUE);
+    oled.println(keymode);
+
+    if (alarm>0) {
+      oled.setTextColor(WHITE, BACKGROUND);
+      oled.print(alarm/4);
+      oled.print(" s   ");
+    } 
+    oled.setTextColor(BLUE, BACKGROUND);
     oled.setCursor(5, 20);
     oled.print(" ");
     oled.print(data.day);
@@ -324,19 +332,26 @@ void loop() {
     oled.print(data.second);
   }
   
-  if (digitalRead(BUTTON) == LOW || (AcY > WAKEUPACC && AcX > WAKEUPACC && AcZ > WAKEUPACC) ) {
+  if ( digitalRead(BUTTON) == LOW || ((last -(int)GyY) > WAKEUPACC) ) {
     displayOnSec=0;
     batteryBar();
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
     delay(200);
-    if (digitalRead(BUTTON) == LOW) alarm = !alarm;
+    if (digitalRead(BUTTON) == LOW) {
+      if (alarm == 0) {
+        alarm = -1;
+      } else {
+        alarm = (alarm+120)%1200;
+      }
+    }
   }
 
   Wire.beginTransmission(MPU);
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(MPU,14,true);  // request a total of 14 registers
-  
+
+  last = GyY;
   GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
   GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
@@ -345,9 +360,7 @@ void loop() {
   AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
       
-  if (GyX > 17200) GyX = 17200;
   if (GyY > 17200) GyY = 17200;
-  if (GyX < -17200) GyX = -17200;
   if (GyY < -17200) GyY = -17200;
   
   if (displayOnSec > OFFSEC) {
@@ -356,13 +369,7 @@ void loop() {
     displayOnSec = -1;
   }
   
-  if (alarm == false) {
-    analogWrite(SPEAKER, 0);
-    digitalWrite(LED_WHITE, LOW);
-    digitalWrite(LED_BLUE1, LOW);
-    digitalWrite(LED_BLUE2, LOW);
-    digitalWrite(VIBRATE, LOW); 
-  } else {
+  if (alarm == 0) {
     if (tick%2==0) {
       analogWrite(SPEAKER, 0);
       digitalWrite(LED_WHITE, LOW);
@@ -375,12 +382,22 @@ void loop() {
       digitalWrite(LED_BLUE1, LOW);
       digitalWrite(LED_BLUE2, HIGH);
       digitalWrite(VIBRATE, HIGH);      
-    }
+    }  
+  } else {
+    analogWrite(SPEAKER, 0);
+    digitalWrite(LED_WHITE, LOW);
+    digitalWrite(LED_BLUE1, LOW);
+    digitalWrite(LED_BLUE2, LOW);
+    digitalWrite(VIBRATE, LOW); 
   }
 }
 
+/* not working
+ *  
+void WDT_Handler(void) {
 ISR(WDT_vect) {
   WDT->CTRL.bit.ENABLE = 0;        // Disable watchdog
   while(WDT->STATUS.bit.SYNCBUSY); // Sync CTRL write
   WDT->INTFLAG.bit.EW  = 1;        // Clear interrupt flag  
 }
+*/
