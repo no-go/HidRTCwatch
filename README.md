@@ -7,6 +7,7 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - day, year, month ...
 - 2 buttons for keyboard commands
 - poti to select the 2-button keys
+- press button 1 (middle) and 3 (right) to set/stop alarm
 
 ## Selection
 

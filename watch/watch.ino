@@ -337,12 +337,9 @@ void loop() {
     batteryBar();
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
     delay(200);
-    if (digitalRead(BUTTON) == LOW) {
-      if (alarm == 0) {
-        alarm = -1;
-      } else {
-        alarm = (alarm+120)%1200;
-      }
+    if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
+    if (digitalRead(BUTTON) == LOW && digitalRead(BUTTON3) == LOW) {
+      alarm = (alarm+120)%1200;
     }
   }
 
