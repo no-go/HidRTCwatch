@@ -77,6 +77,14 @@ int batLength    = 34;
 #define WHITE           0xFFFF
 #define BACKGROUND      0x0000
 
+#define MOD_OFF   0
+#define MOD_ON    1
+#define MOD_STROB 2
+#define MOD_WALK  3
+#define MOD_HUI   4
+
+int ledMode = 0;
+
 short colors[15] = {
   RED2, BLACK, GREY, GREYBLUE, LIGHTBLUE, CYAN, BLUE, MAGENTA,
   RED, AMBER, YELLOW, GREENYELLOW, GREEN, WHITE, WHITE
@@ -290,9 +298,10 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=PLAYPAUSE"));
     }
   } else {
-    keymode = "     LED  > on";
+    keymode = "LED  MODE +++>";
     if (digitalRead(BUTTON3) == LOW) {
-      digitalWrite(LED_WHITE, HIGH);
+      ledMode = (ledMode+1)%5;
+      delay(100);
     }
   }
   
@@ -385,6 +394,8 @@ void loop() {
       
   if (GyY > 17200) GyY = 17200;
   if (GyY < -17200) GyY = -17200;
+  if (GyX > 17200) GyX = 17200;
+  if (GyX < -17200) GyX = -17200;
   
   if (displayOnSec > OFFSEC) {
     oled.fillScreen(BLACK);
@@ -395,23 +406,52 @@ void loop() {
   if (alarm == 0) {
     if (tick%2==0) {
       analogWrite(SPEAKER, 0);
+      analogWrite(LED_BLUE2, 0);
       digitalWrite(LED_WHITE, LOW);
       digitalWrite(LED_BLUE1, HIGH);
-      digitalWrite(LED_BLUE2, LOW);
       digitalWrite(VIBRATE, LOW);      
     } else {
       analogWrite(SPEAKER, 50);
+      analogWrite(LED_BLUE2, 255);
       digitalWrite(LED_WHITE, HIGH);
       digitalWrite(LED_BLUE1, LOW);
       digitalWrite(LED_BLUE2, HIGH);
       digitalWrite(VIBRATE, HIGH);      
     }  
   } else {
-    analogWrite(SPEAKER, 0);
-    digitalWrite(LED_WHITE, LOW);
-    digitalWrite(LED_BLUE1, LOW);
-    digitalWrite(LED_BLUE2, LOW);
-    digitalWrite(VIBRATE, LOW); 
+    if (ledMode == MOD_OFF) {
+      analogWrite(SPEAKER, 0);
+      analogWrite(LED_BLUE2, 0);
+      digitalWrite(LED_WHITE, LOW);
+      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(VIBRATE, LOW); 
+    } else if (ledMode == MOD_ON) {
+      analogWrite(SPEAKER, 0);
+      analogWrite(LED_BLUE2, 0);
+      digitalWrite(LED_WHITE, HIGH);
+      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(VIBRATE, LOW);      
+    } else if (ledMode == MOD_STROB) {
+      analogWrite(SPEAKER, 0);
+      analogWrite(LED_BLUE2, 0);
+      digitalWrite(LED_WHITE, tick%2==0);
+      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(VIBRATE, LOW);
+      delay(20);
+    } else if (ledMode == MOD_WALK) {
+      analogWrite(SPEAKER, 0);
+      digitalWrite(LED_WHITE, tick%3==0);
+      digitalWrite(LED_BLUE1, tick%2==0);
+      analogWrite(LED_BLUE2, tick%7==0? 0 : 255);
+      digitalWrite(VIBRATE, LOW);
+      delay(100);
+    } else if (ledMode == MOD_HUI) {
+      analogWrite(SPEAKER, (GyY/150)+(tick%64));
+      analogWrite(LED_BLUE2, tick<128? 0 : 255);
+      digitalWrite(LED_WHITE, LOW);
+      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(VIBRATE, LOW); 
+    }
   }
 }
 

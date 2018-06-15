@@ -20,7 +20,7 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - volume up, down
 - media pref, next
 - media stop, play (pause)
-- right button as LED on button (takes many power)
+- right button as LED and stobo disco button (takes many power)
 
 ## Hardware
 
