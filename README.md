@@ -8,9 +8,11 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - 2 buttons for keyboard commands
 - poti to select the 2-button keys
 - press button 1 (middle) and 3 (right) to set/stop alarm
+- mouse mode via gyroscope
 
 ## Selection
 
+- Mouse left, right click (takes many power)
 - cursor left, right
 - cursor up, down
 - page up, down
@@ -18,7 +20,7 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - volume up, down
 - media pref, next
 - media stop, play (pause)
-
+- right button as LED on button (takes many power)
 
 ## Hardware
 

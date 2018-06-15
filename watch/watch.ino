@@ -17,7 +17,7 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define VCCMAX 4370
 #define VCCMIN 3550
 
-#define BUTTON    A1 //(to - on press)
+#define BUTTON    A1 //(to -on press)
 #define BUTTON2   A3 //(to -on press)
 #define BUTTON3   A5 //(to -on press)
 #define POTI      A2
@@ -42,6 +42,7 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
 int last;
+unsigned short potival;
 
 int vccVal;
 int alarm = -1;
@@ -134,23 +135,30 @@ inline void batteryFrame() {
 inline void ticking() {
   tick++;
   if (alarm>0) alarm--;
-  WDT->CTRL.reg = 0;
-  while(WDT->STATUS.bit.SYNCBUSY);
-  WDT->INTENSET.bit.EW   = 1;
-  WDT->CONFIG.bit.PER    = 0xB;
-  WDT->CONFIG.bit.WINDOW = 0x5; // 256ms
-  WDT->CTRL.bit.WEN      = 1;
-  while(WDT->STATUS.bit.SYNCBUSY);
 
-  WDT->CLEAR.reg = WDT_CLEAR_CLEAR_KEY;
-  while(WDT->STATUS.bit.SYNCBUSY);
+  // no sleep on LED and Mouse function
+  if (potival <= 900 && potival > 70) {
+    WDT->CTRL.reg = 0;
+    while(WDT->STATUS.bit.SYNCBUSY);
+    WDT->INTENSET.bit.EW   = 1;
+    WDT->CONFIG.bit.PER    = 0xB;
+    WDT->CONFIG.bit.WINDOW = 0x5; // 256ms
+    WDT->CTRL.bit.WEN      = 1;
+    while(WDT->STATUS.bit.SYNCBUSY);
   
-  WDT->CTRL.bit.ENABLE = 1;
-  while(WDT->STATUS.bit.SYNCBUSY);
-
-  system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
-  system_sleep();
+    WDT->CLEAR.reg = WDT_CLEAR_CLEAR_KEY;
+    while(WDT->STATUS.bit.SYNCBUSY);
+    
+    WDT->CTRL.bit.ENABLE = 1;
+    while(WDT->STATUS.bit.SYNCBUSY);
   
+    system_set_sleepmode(SYSTEM_SLEEPMODE_STANDBY);
+    system_sleep();
+  } else {
+    WDT->CTRL.reg = 0;
+    while(WDT->STATUS.bit.SYNCBUSY);
+  }
+    
   if (displayOnSec >= 0) displayOnSec++;
   
   DS3231M_get(data);
@@ -177,7 +185,7 @@ void setup() {
   ble.begin(false);
   ble.echo(false);
   ble.sendCommandCheckOK(F("AT+BleHIDEn=On"));
-  ble.sendCommandCheckOK(F("AT+BleKeyboardEn=On"));
+  //ble.sendCommandCheckOK(F("AT+BleKeyboardEn=On"));
   ble.verbose(false);
   ble.reset();
   delay(7);
@@ -203,8 +211,21 @@ void setup() {
 
 void loop() {
   ticking();
-  unsigned short potival = analogRead(POTI);
+  potival = analogRead(POTI);
   if (potival > 900) {
+    keymode = "[l] MOUSE  [r]";
+    if (digitalRead(BUTTON2) == LOW) {
+      ble.sendCommandCheckOK(F("AT+BleHidMouseButton=L,click"));
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ble.sendCommandCheckOK(F("AT+BleHidMouseButton=R,click"));
+    }
+    int x = map(GyX,-40200, 40200, -32, 31);
+    int y = map(GyY, 40200,-40200, -32, 31);
+    ble.print(F("AT+BleHidMouseMove="));
+    ble.println(String(x)+String(',')+String(y));
+    
+  } else if (potival > 800) {
     keymode = "left,right    ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-50"));
@@ -214,7 +235,7 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-4F"));
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00"));
     }
-  } else if (potival > 800) {
+  } else if (potival > 700) {
     keymode = "up,down       ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-52"));
@@ -252,7 +273,7 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=VOLUME+,400"));
     }
-  } else if (potival > 100) {
+  } else if (potival > 130) {
     keymode = "<pref    next>";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIAPREVIOUS"));
@@ -260,13 +281,18 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIANEXT"));
     }
-  } else {
+  } else if (potival > 70) {
     keymode = "stop   [>] [\"]";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIASTOP"));
     }
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=PLAYPAUSE"));
+    }
+  } else {
+    keymode = "     LED  > on";
+    if (digitalRead(BUTTON3) == LOW) {
+      digitalWrite(LED_WHITE, HIGH);
     }
   }
   
