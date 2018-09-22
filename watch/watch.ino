@@ -22,8 +22,8 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define BUTTON3   A5 //(to -on press)
 #define POTI      A2
 #define SPEAKER   10
-#define LED_BLUE1 12
-#define LED_BLUE2 13
+#define LED_EFFECT  12
+#define LED_BLUE    13
 
 #define LED_WHITE  A0
 #define VIBRATE    11
@@ -48,6 +48,7 @@ int vccVal;
 int alarm = -1;
 byte fade = 200;
 byte tick = 0;
+int oldsec = 0;
 String keymode = "         ";
 
 //RTCdata data = {40,53,21, 3, 21,03,18}; // (3 == )Mittwoch, 21:53:40 Uhr 21.03.2018 //7=sonntag
@@ -76,12 +77,13 @@ int batLength    = 34;
 #define GREEN           0x07E0
 #define WHITE           0xFFFF
 #define BACKGROUND      0x0000
+#define BLACK2          0b0000000000000001
 
-#define MOD_OFF   0
-#define MOD_ON    1
-#define MOD_STROB 2
-#define MOD_WALK  3
-#define MOD_HUI   4
+#define MOD_OFF    0
+#define MOD_ON     1
+#define MOD_STROB  2
+#define MOD_POLICE 3
+#define MOD_HUI    4
 
 int ledMode = 0;
 
@@ -142,10 +144,15 @@ inline void batteryFrame() {
 
 inline void ticking() {
   tick++;
-  if (alarm>0) alarm--;
+  if (alarm>0) {
+    if (oldsec != data.second) alarm-=4;
+    if (alarm<1) alarm=0;
+  }
+  oldsec = data.second;
 
-  // no sleep on LED and Mouse function
-  if (potival <= 900 && potival > 70) {
+  // no sleep if LED ON and Mouse function
+  // : set time, alarm and no-beep mode is with sleep
+  if (potival > 550 && potival <= 900) {
     WDT->CTRL.reg = 0;
     while(WDT->STATUS.bit.SYNCBUSY);
     WDT->INTENSET.bit.EW   = 1;
@@ -180,8 +187,8 @@ void setup() {
   pinMode(POTI, INPUT);
   pinMode(SPEAKER, OUTPUT);
   pinMode(LED_WHITE, OUTPUT);
-  pinMode(LED_BLUE1, OUTPUT);
-  pinMode(LED_BLUE2, OUTPUT);
+  pinMode(LED_EFFECT, OUTPUT);
+  pinMode(LED_BLUE, OUTPUT);
   pinMode(VIBRATE, OUTPUT);
     
   Wire.begin();
@@ -233,7 +240,7 @@ void loop() {
     ble.print(F("AT+BleHidMouseMove="));
     ble.println(String(x)+String(',')+String(y));
     
-  } else if (potival > 800) {
+  } else if (potival > 850) {
     keymode = "left,right    ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-50"));
@@ -243,7 +250,7 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-4F"));
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00"));
     }
-  } else if (potival > 700) {
+  } else if (potival > 800) {
     keymode = "up,down       ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-52"));
@@ -253,7 +260,7 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-51"));
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00"));
     }
-  } else if (potival > 600) {
+  } else if (potival > 750) {
     keymode = "page up/down  ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-4B"));
@@ -263,7 +270,7 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-4E"));
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00"));
     }
-  } else if (potival > 400) {
+  } else if (potival > 700) {
     keymode = "DEL, SPACE    ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-2A"));
@@ -273,7 +280,7 @@ void loop() {
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00-2C"));
       ble.sendCommandCheckOK(F("AT+BLEKEYBOARDCODE=00-00"));
     }
-  } else if (potival > 200) {
+  } else if (potival > 650) {
     keymode = "Volume - / +  ";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=VOLUME-,400"));
@@ -281,7 +288,7 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=VOLUME+,400"));
     }
-  } else if (potival > 130) {
+  } else if (potival > 600) {
     keymode = "<pref    next>";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIAPREVIOUS"));
@@ -289,7 +296,7 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIANEXT"));
     }
-  } else if (potival > 70) {
+  } else if (potival > 550) {
     keymode = "stop   [>] [\"]";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=MEDIASTOP"));
@@ -297,12 +304,105 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BLEHIDCONTROLKEY=PLAYPAUSE"));
     }
-  } else {
-    keymode = "LED  MODE +++>";
-    if (digitalRead(BUTTON3) == LOW) {
-      ledMode = (ledMode+1)%5;
+    
+  } else if (potival > 500) {
+    keymode = "LED Strobo   >";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
       delay(100);
     }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_STROB;
+      delay(100);
+    }
+
+  } else if (potival > 450) {
+    keymode = "LED Bee-Boo  >";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      delay(100);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_HUI;
+      delay(100);
+    }
+
+  } else if (potival > 400) {
+    keymode = "LED WHITE    >";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      delay(100);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_ON;
+      delay(100);
+    }
+    
+  } else if (potival > 350) {
+    keymode = "LED Police   >";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      delay(100);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_POLICE;
+      delay(100);
+    }
+
+  } else if (potival > 250) {
+    keymode = "-   Alarm    +";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      alarm = alarm-120;
+      if (alarm <= 0) alarm = -1;
+      delay(100);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      alarm = (alarm+120)%1200;
+      delay(100);
+    }
+
+  } else if (potival > 150) {
+    keymode = "-  Minutes   +";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      data.minute = (data.minute-1)%60;
+      data.second = 0;
+      delay(100);
+      DS3231M_set(data);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      data.minute = (data.minute+1)%60;
+      data.second = 0;
+      delay(100);
+      DS3231M_set(data);
+    }
+
+//  } else if (potival > 50) {
+
+  } else {
+    keymode = "-   Hours    +";
+    if (digitalRead(BUTTON2) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      data.hour = (data.hour-1)%24;
+      delay(100);
+      DS3231M_set(data);
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      ledMode = MOD_OFF;
+      displayOnSec=0;
+      data.hour = (data.hour+1)%24;
+      delay(100);
+      DS3231M_set(data);
+    }
+
   }
   
   if (displayOnSec >= 0) {
@@ -312,11 +412,14 @@ void loop() {
     oled.println(keymode);
 
     if (alarm>0) {
-      oled.setTextColor(WHITE, BACKGROUND);
+      oled.setTextColor(GREEN, BACKGROUND);
       oled.print(alarm/4);
-      oled.print(" s   ");
+      oled.print(" s  ");
+    } else {
+      oled.setTextColor(BLACK2, BACKGROUND);
+      oled.print(".........");
     } 
-    oled.setTextColor(BLUE, BACKGROUND);
+    oled.setTextColor(YELLOW, BACKGROUND);
     oled.setCursor(5, 20);
     oled.print(" ");
     oled.print(data.day);
@@ -355,7 +458,7 @@ void loop() {
     }
     
     oled.setTextSize(2);
-    oled.setTextColor(YELLOW, BACKGROUND);
+    oled.setTextColor(WHITE, BACKGROUND);
     oled.setCursor(0, 46);
     if (data.hour<10) oled.print("0");
     oled.print(data.hour);
@@ -373,9 +476,6 @@ void loop() {
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
     delay(200);
     if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
-    if (digitalRead(BUTTON) == LOW && digitalRead(BUTTON3) == LOW) {
-      alarm = (alarm+120)%1200;
-    }
   }
 
   Wire.beginTransmission(MPU);
@@ -406,61 +506,52 @@ void loop() {
   if (alarm == 0) {
     if (tick%2==0) {
       analogWrite(SPEAKER, 0);
-      analogWrite(LED_BLUE2, 0);
+      analogWrite(LED_BLUE, 0);
       digitalWrite(LED_WHITE, LOW);
-      digitalWrite(LED_BLUE1, HIGH);
+      digitalWrite(LED_EFFECT, HIGH);
       digitalWrite(VIBRATE, LOW);      
     } else {
       analogWrite(SPEAKER, 50);
-      analogWrite(LED_BLUE2, 255);
+      analogWrite(LED_BLUE, 255);
       digitalWrite(LED_WHITE, HIGH);
-      digitalWrite(LED_BLUE1, LOW);
-      digitalWrite(LED_BLUE2, HIGH);
+      digitalWrite(LED_EFFECT, LOW);
+      digitalWrite(LED_BLUE, HIGH);
       digitalWrite(VIBRATE, HIGH);      
     }  
   } else {
     if (ledMode == MOD_OFF) {
       analogWrite(SPEAKER, 0);
-      analogWrite(LED_BLUE2, 0);
+      analogWrite(LED_BLUE, 0);
       digitalWrite(LED_WHITE, LOW);
-      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(LED_EFFECT, LOW);
       digitalWrite(VIBRATE, LOW); 
     } else if (ledMode == MOD_ON) {
       analogWrite(SPEAKER, 0);
-      analogWrite(LED_BLUE2, 0);
+      analogWrite(LED_BLUE, 0);
       digitalWrite(LED_WHITE, HIGH);
-      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(LED_EFFECT, LOW);
       digitalWrite(VIBRATE, LOW);      
     } else if (ledMode == MOD_STROB) {
       analogWrite(SPEAKER, 0);
-      analogWrite(LED_BLUE2, 0);
+      analogWrite(LED_BLUE, 0);
       digitalWrite(LED_WHITE, tick%2==0);
-      digitalWrite(LED_BLUE1, LOW);
+      digitalWrite(LED_EFFECT, LOW);
       digitalWrite(VIBRATE, LOW);
       delay(20);
-    } else if (ledMode == MOD_WALK) {
+    } else if (ledMode == MOD_POLICE) {
       analogWrite(SPEAKER, 0);
-      digitalWrite(LED_WHITE, tick%3==0);
-      digitalWrite(LED_BLUE1, tick%2==0);
-      analogWrite(LED_BLUE2, tick%7==0? 0 : 255);
+      analogWrite(LED_BLUE, tick%2==0? 0 : 255);
+      digitalWrite(LED_EFFECT, tick%2==0);
       digitalWrite(VIBRATE, LOW);
       delay(100);
     } else if (ledMode == MOD_HUI) {
       analogWrite(SPEAKER, (GyY/150)+(tick%64));
-      analogWrite(LED_BLUE2, tick<128? 0 : 255);
-      digitalWrite(LED_WHITE, LOW);
-      digitalWrite(LED_BLUE1, LOW);
-      digitalWrite(VIBRATE, LOW); 
+      analogWrite(LED_BLUE, 0);
+      digitalWrite(LED_WHITE, (GyX/150)>70);
+      digitalWrite(LED_EFFECT, LOW);
+      digitalWrite(VIBRATE, (GyZ/150)>70); 
     }
   }
 }
 
-/* not working
- *  
-void WDT_Handler(void) {
-ISR(WDT_vect) {
-  WDT->CTRL.bit.ENABLE = 0;        // Disable watchdog
-  while(WDT->STATUS.bit.SYNCBUSY); // Sync CTRL write
-  WDT->INTFLAG.bit.EW  = 1;        // Clear interrupt flag  
-}
-*/
+
