@@ -10,7 +10,7 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define OLED_DC      5
 #define OLED_CS     A4
 #define OLED_RESET   6
-#define WAKEUPACC   23000
+#define WAKEUPACC   300
 
 #define VBATPIN   A7  // A7 = D9 !!
 
@@ -27,7 +27,7 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 
 #define LED_WHITE  A0
 #define VIBRATE    11
-#define OFFSEC     20 // 5sec = 20x 1/4 sec
+#define OFFSEC     12 // 5sec = 20x 1/4 sec
 
 #include <Adafruit_GFX.h>
 #include "Adafruit_SSD1331.h"
@@ -41,6 +41,8 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #include "DS3231M.h"
 
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
+int16_t gyX,gyY,gyZ;
+int newg;
 int last;
 unsigned short potival;
 
@@ -50,6 +52,7 @@ byte fade = 200;
 byte tick = 0;
 int oldsec = 0;
 String keymode = "         ";
+byte ledId = 0;
 
 //RTCdata data = {40,53,21, 3, 21,03,18}; // (3 == )Mittwoch, 21:53:40 Uhr 21.03.2018 //7=sonntag
 #if SET_INIT_RTC > 0
@@ -328,12 +331,13 @@ void loop() {
     }
 
   } else if (potival > 400) {
-    keymode = "LED WHITE    >";
+    keymode = "white,blue,UV>";
     if (digitalRead(BUTTON2) == LOW) {
       ledMode = MOD_OFF;
       delay(100);
     }
     if (digitalRead(BUTTON3) == LOW) {
+      ledId = (ledId+1)%3;
       ledMode = MOD_ON;
       delay(100);
     }
@@ -451,7 +455,7 @@ void loop() {
         oled.print(" Samstag   ");
         break;
       case 7:
-        oled.print(" Sonntag   ");
+        oled.print(" SONNTAG   ");
         break;
       default:
         ;
@@ -470,20 +474,11 @@ void loop() {
     oled.print(data.second);
   }
   
-  if ( digitalRead(BUTTON) == LOW || ((last -(int)GyY) > WAKEUPACC) ) {
-    displayOnSec=0;
-    batteryBar();
-    oled.writeCommand(SSD1331_CMD_DISPLAYON);
-    delay(200);
-    if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
-  }
-
   Wire.beginTransmission(MPU);
   Wire.write(0x3B);  // starting with register 0x3B (ACCEL_XOUT_H)
   Wire.endTransmission(false);
   Wire.requestFrom(MPU,14,true);  // request a total of 14 registers
 
-  last = GyY;
   GyX=Wire.read()<<8|Wire.read();  // 0x43 (GYRO_XOUT_H) & 0x44 (GYRO_XOUT_L)
   GyY=Wire.read()<<8|Wire.read();  // 0x45 (GYRO_YOUT_H) & 0x46 (GYRO_YOUT_L)
   GyZ=Wire.read()<<8|Wire.read();  // 0x47 (GYRO_ZOUT_H) & 0x48 (GYRO_ZOUT_L)
@@ -491,12 +486,32 @@ void loop() {
   AcX=Wire.read()<<8|Wire.read();  // 0x3B (ACCEL_XOUT_H) & 0x3C (ACCEL_XOUT_L)    
   AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
-      
-  if (GyY > 17200) GyY = 17200;
-  if (GyY < -17200) GyY = -17200;
+
   if (GyX > 17200) GyX = 17200;
-  if (GyX < -17200) GyX = -17200;
+  if (GyY > 17200) GyY = 17200;
+  if (GyZ > 17200) GyZ = 17200;
+  if (GyX < 17200) GyX = -17200;
+  if (GyY < 17200) GyY = -17200;
+  if (GyZ < 17200) GyZ = -17200;
+
+  gyX = GyX / 100;
+  gyY = GyY / 100;
+  gyZ = GyZ / 100;
   
+  if (gyX < 0) gyX *= -1;
+  if (gyY < 0) gyY *= -1;
+  if (gyZ < 0) gyZ *= -1;
+  
+  newg = gyX + gyY + gyZ;
+  if ( digitalRead(BUTTON) == LOW || ((last-newg) > WAKEUPACC) || ((newg-last) > WAKEUPACC) ) {
+    displayOnSec=0;
+    batteryBar();
+    oled.writeCommand(SSD1331_CMD_DISPLAYON);
+    delay(200);
+    if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
+  }
+  last = newg;
+
   if (displayOnSec > OFFSEC) {
     oled.fillScreen(BLACK);
     oled.writeCommand(SSD1331_CMD_DISPLAYOFF);
@@ -526,11 +541,24 @@ void loop() {
       digitalWrite(LED_EFFECT, LOW);
       digitalWrite(VIBRATE, LOW); 
     } else if (ledMode == MOD_ON) {
+      
       analogWrite(SPEAKER, 0);
-      analogWrite(LED_BLUE, 0);
-      digitalWrite(LED_WHITE, HIGH);
-      digitalWrite(LED_EFFECT, LOW);
-      digitalWrite(VIBRATE, LOW);      
+      digitalWrite(VIBRATE, LOW);
+      
+      if (ledId == 0) {
+        analogWrite(LED_BLUE, 0);
+        digitalWrite(LED_WHITE, HIGH);
+        digitalWrite(LED_EFFECT, LOW);
+      } else if (ledId == 1) {
+        analogWrite(LED_BLUE, 255);
+        digitalWrite(LED_WHITE, LOW);
+        digitalWrite(LED_EFFECT, LOW);
+      } else {
+        analogWrite(LED_BLUE, 0);
+        digitalWrite(LED_WHITE, LOW);
+        digitalWrite(LED_EFFECT, HIGH);        
+      }
+       
     } else if (ledMode == MOD_STROB) {
       analogWrite(SPEAKER, 0);
       analogWrite(LED_BLUE, 0);
@@ -545,11 +573,11 @@ void loop() {
       digitalWrite(VIBRATE, LOW);
       delay(100);
     } else if (ledMode == MOD_HUI) {
-      analogWrite(SPEAKER, (GyY/150)+(tick%64));
+      analogWrite(SPEAKER, (GyX/200));
       analogWrite(LED_BLUE, 0);
-      digitalWrite(LED_WHITE, (GyX/150)>70);
+      digitalWrite(LED_WHITE, (GyX/200)>70);
       digitalWrite(LED_EFFECT, LOW);
-      digitalWrite(VIBRATE, (GyZ/150)>70); 
+      digitalWrite(VIBRATE, (GyX/200)>70); 
     }
   }
 }
