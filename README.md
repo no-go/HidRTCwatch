@@ -7,7 +7,6 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - day, year, month ...
 - 2 buttons for keyboard commands
 - poti to select the 2-button keys
-- press button 1 (middle) and 3 (right) to set/stop alarm
 - mouse mode via gyroscope
 
 ## Selection
@@ -20,7 +19,14 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 - volume up, down
 - media pref, next
 - media stop, play (pause)
-- right button as LED and stobo disco button (takes many power)
+- off,on LED Stroboscope
+- off,on motion controlled sound and light
+- off,on LED (white, blue or UV)
+- off,on LED blink Police (blue-UV)
+- off,on LED Stroboscope
+- start and set countdown alarm (-30sec, +30sec) function
+- set minutes (down,up)
+- set hours (down,up)
 
 ## Hardware
 
