@@ -10,12 +10,12 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #define OLED_DC      5
 #define OLED_CS     A4
 #define OLED_RESET   6
-#define WAKEUPACC   300
+#define WAKEUPACC  980
 
 #define VBATPIN   A7  // A7 = D9 !!
 
 #define VCCMAX 4370
-#define VCCMIN 3550
+#define VCCMIN 3680
 
 #define BUTTON    A1 //(to -on press)
 #define BUTTON2   A3 //(to -on press)
@@ -41,9 +41,8 @@ const int MPU=0x69;  // I2C address of the MPU-6050 (AD0 to 3.3V)
 #include "DS3231M.h"
 
 int16_t AcX,AcY,AcZ,Tmp,GyX,GyY,GyZ;
-int16_t gyX,gyY,gyZ;
-int newg;
-int last;
+int16_t vx,vy,vz;
+float last;
 unsigned short potival;
 
 int vccVal;
@@ -193,6 +192,7 @@ void setup() {
   pinMode(LED_EFFECT, OUTPUT);
   pinMode(LED_BLUE, OUTPUT);
   pinMode(VIBRATE, OUTPUT);
+  Serial.begin(9600);
     
   Wire.begin();
   Wire.beginTransmission(MPU);
@@ -238,8 +238,10 @@ void loop() {
     if (digitalRead(BUTTON3) == LOW) {
       ble.sendCommandCheckOK(F("AT+BleHidMouseButton=R,click"));
     }
-    int x = map(GyX,-40200, 40200, -32, 31);
-    int y = map(GyY, 40200,-40200, -32, 31);
+    int x = map(AcY, 40200,-40200, -31, 31);
+    int y = map(AcX, 40200,-40200, -31, 31);
+    //Serial.println(x);
+    //Serial.println(y);
     ble.print(F("AT+BleHidMouseMove="));
     ble.println(String(x)+String(',')+String(y));
     
@@ -487,30 +489,23 @@ void loop() {
   AcY=Wire.read()<<8|Wire.read();  // 0x3D (ACCEL_YOUT_H) & 0x3E (ACCEL_YOUT_L)
   AcZ=Wire.read()<<8|Wire.read();  // 0x3F (ACCEL_ZOUT_H) & 0x40 (ACCEL_ZOUT_L)
 
-  if (GyX > 17200) GyX = 17200;
-  if (GyY > 17200) GyY = 17200;
-  if (GyZ > 17200) GyZ = 17200;
-  if (GyX < 17200) GyX = -17200;
-  if (GyY < 17200) GyY = -17200;
-  if (GyZ < 17200) GyZ = -17200;
-
-  gyX = GyX / 100;
-  gyY = GyY / 100;
-  gyZ = GyZ / 100;
+  vx = AcX/100;
+  vy = AcY/100;
+  vz = AcZ/100;
   
-  if (gyX < 0) gyX *= -1;
-  if (gyY < 0) gyY *= -1;
-  if (gyZ < 0) gyZ *= -1;
+  if (vx < 0) vx *= -1;
+  if (vy < 0) vy *= -1;
+  if (vz < 0) vz *= -1;
   
-  newg = gyX + gyY + gyZ;
-  if ( digitalRead(BUTTON) == LOW || ((last-newg) > WAKEUPACC) || ((newg-last) > WAKEUPACC) ) {
+  last = vx + vy + vz;
+  Serial.println(last);
+  if ( digitalRead(BUTTON) == LOW || (last > WAKEUPACC) ) {
     displayOnSec=0;
     batteryBar();
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
     delay(200);
     if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
   }
-  last = newg;
 
   if (displayOnSec > OFFSEC) {
     oled.fillScreen(BLACK);
@@ -573,11 +568,11 @@ void loop() {
       digitalWrite(VIBRATE, LOW);
       delay(100);
     } else if (ledMode == MOD_HUI) {
-      analogWrite(SPEAKER, (GyX/200));
+      analogWrite(SPEAKER, last/20);
       analogWrite(LED_BLUE, 0);
-      digitalWrite(LED_WHITE, (GyX/200)>70);
+      digitalWrite(LED_WHITE, ((int)last/20)>70);
       digitalWrite(LED_EFFECT, LOW);
-      digitalWrite(VIBRATE, (GyX/200)>70); 
+      digitalWrite(VIBRATE, ((int)last/20)>70); 
     }
   }
 }
