@@ -61,7 +61,7 @@ byte ledId = 0;
 #endif
 
 int displayOnSec =  0;
-int batLength    = 34;
+int batLength    = 30;
 
 // Color definitions
 #define BLACK           0x0000
@@ -74,12 +74,14 @@ int batLength    = 34;
 #define RED             0xF800
 #define RED2            0b0101100000000000
 #define AMBER           0b1111101111100111
+#define AMBER2          0b1111100111100000
 #define YELLOW          0xFFE0  
 #define GREENYELLOW     0b0111111111100000
 #define GREEN           0x07E0
 #define WHITE           0xFFFF
 #define BACKGROUND      0x0000
 #define BLACK2          0b0000000000000001
+#define BLACK3          0b0011100011100111
 
 #define MOD_OFF    0
 #define MOD_ON     1
@@ -88,10 +90,12 @@ int batLength    = 34;
 #define MOD_HUI    4
 
 int ledMode = 0;
+bool whiteonly = false;
+int clockcolorid = 14;
 
-short colors[15] = {
-  RED2, BLACK, GREY, GREYBLUE, LIGHTBLUE, CYAN, BLUE, MAGENTA,
-  RED, AMBER, YELLOW, GREENYELLOW, GREEN, WHITE, WHITE
+short colors[16] = {
+  RED2, AMBER2, GREY, GREYBLUE, LIGHTBLUE, CYAN, BLUE, MAGENTA,
+  RED, AMBER, YELLOW, GREENYELLOW, GREEN, BLACK3, WHITE, BLACK
 };
 
 Adafruit_SSD1331 oled = Adafruit_SSD1331(OLED_CS, OLED_DC, OLED_RESET);
@@ -106,7 +110,7 @@ void readVcc() {
   if (vccVal < VCCMIN) vccVal = VCCMIN;
 }
 
-short green2red(int val, int maxi) {
+short green2red(int val, int maxi) {  
   // 16 bit = 5+6+5
   short result = 0x0000;
   int redPart   = 0;
@@ -129,12 +133,16 @@ void batteryBar() {
   int val = map(vccVal, VCCMIN, VCCMAX, 0, batLength);
   int short col = WHITE;
   oled.fillRect(oled.width()-5, 2, 4, batLength-val, BACKGROUND);
-  for (int v=val; v>0; --v) {
-    oled.drawLine(
-      oled.width()-5, batLength-v+2,
-      oled.width()-2, batLength-v+2,
-      green2red(v, batLength)
-    );
+  if (whiteonly) {
+    oled.fillRect(oled.width()-5, batLength-val+2, 4, val, WHITE);
+  } else {
+    for (int v=val; v>0; --v) {
+      oled.drawLine(
+        oled.width()-5, batLength-v+2,
+        oled.width()-2, batLength-v+2,
+        green2red(v, batLength)
+      );
+    }
   }
 }
 
@@ -154,7 +162,7 @@ inline void ticking() {
 
   // no sleep if LED ON and Mouse function
   // : set time, alarm and no-beep mode is with sleep
-  if (potival > 550 && potival <= 900) {
+  if ( (potival > 550 && potival <= 900) || potival > 970) {
     WDT->CTRL.reg = 0;
     while(WDT->STATUS.bit.SYNCBUSY);
     WDT->INTENSET.bit.EW   = 1;
@@ -230,7 +238,25 @@ void setup() {
 void loop() {
   ticking();
   potival = analogRead(POTI);
-  if (potival > 900) {
+  
+  if (potival > 970) {
+    displayOnSec = 0;
+    ledMode = MOD_OFF;
+    if (digitalRead(BUTTON2) == LOW) {
+      oled.fillScreen(BLACK);
+      clockcolorid = 14;
+      oled.writeCommand(SSD1331_CMD_DISPLAYDIM);
+      whiteonly = true;
+      batteryBar();
+    }
+    if (digitalRead(BUTTON3) == LOW) {
+      oled.fillScreen(BLACK);
+      oled.writeCommand(SSD1331_CMD_DISPLAYON);
+      whiteonly = false;
+      batteryBar();
+    }
+
+  } else if (potival > 900) {
     keymode = "[l] MOUSE  [r]";
     if (digitalRead(BUTTON2) == LOW) {
       ble.sendCommandCheckOK(F("AT+BleHidMouseButton=L,click"));
@@ -410,70 +436,96 @@ void loop() {
     }
 
   }
+
+
+
   
   if (displayOnSec >= 0) {
-    oled.setTextSize(1);
-    oled.setTextColor(WHITE, RED2);
-    oled.setCursor(0, 2);
-    oled.println(keymode);
+    if (potival > 970) {
 
-    if (alarm>0) {
-      oled.setTextColor(GREEN, BACKGROUND);
-      oled.print(alarm/4);
-      oled.print(" s  ");
+      oled.setTextColor(colors[clockcolorid], BACKGROUND);
+      oled.setTextSize(1);
+      oled.setCursor(84, 57);
+      if (data.second<10) oled.print("0");
+      oled.print(data.second);
+      
+      oled.setTextSize(5);
+      oled.setCursor(15, -2);
+      if (data.hour<10) oled.print("0");
+      oled.print(data.hour);
+      oled.setTextSize(4);
+      
+      oled.setCursor(20, 38);
+      if (data.minute<10) oled.print("0");
+      oled.print(data.minute);
+
+      if (data.second%20 == 0) batteryBar();
+      
     } else {
-      oled.setTextColor(BLACK2, BACKGROUND);
-      oled.print(".........");
-    } 
-    oled.setTextColor(YELLOW, BACKGROUND);
-    oled.setCursor(5, 20);
-    oled.print(" ");
-    oled.print(data.day);
-    oled.print(".");
-    oled.print(data.month);
-    oled.print(".20");      
-    oled.print(data.year);
-    oled.print("  ");
-
-    oled.setTextColor(LIGHTBLUE, BACKGROUND);
-    oled.setCursor(5, 28);
-    switch(data.dofweek) {
-      case 1:
-        oled.print(" Montag    ");
-        break;
-      case 2:
-        oled.print(" Dienstag  ");
-        break;
-      case 3:
-        oled.print(" Mittwoch  ");
-        break;
-      case 4:
-        oled.print(" Donnerstag");
-        break;
-      case 5:
-        oled.print(" Freitag   ");
-        break;
-      case 6:
-        oled.print(" Samstag   ");
-        break;
-      case 7:
-        oled.print(" SONNTAG   ");
-        break;
-      default:
-        ;
+      
+      oled.setTextSize(1);
+      oled.setTextColor(WHITE, RED2);
+      oled.setCursor(0, 2);
+      oled.println(keymode);
+  
+      if (alarm>0) {
+        oled.setTextColor(GREEN, BACKGROUND);
+        oled.print(alarm/4);
+        oled.print(" s  ");
+      } else {
+        oled.setTextColor(BLACK2, BACKGROUND);
+        oled.print(".........");
+      } 
+      oled.setTextColor(YELLOW, BACKGROUND);
+      oled.setCursor(5, 20);
+      oled.print(" ");
+      oled.print(data.day);
+      oled.print(".");
+      oled.print(data.month);
+      oled.print(".20");      
+      oled.print(data.year);
+      oled.print("  ");
+  
+      oled.setTextColor(LIGHTBLUE, BACKGROUND);
+      oled.setCursor(5, 28);
+      switch(data.dofweek) {
+        case 1:
+          oled.print(" Montag    ");
+          break;
+        case 2:
+          oled.print(" Dienstag  ");
+          break;
+        case 3:
+          oled.print(" Mittwoch  ");
+          break;
+        case 4:
+          oled.print(" Donnerstag");
+          break;
+        case 5:
+          oled.print(" Freitag   ");
+          break;
+        case 6:
+          oled.print(" Samstag   ");
+          break;
+        case 7:
+          oled.print(" SONNTAG   ");
+          break;
+        default:
+          ;
+      }
+      
+      oled.setTextSize(2);
+      oled.setTextColor(WHITE, BACKGROUND);
+      oled.setCursor(0, 46);
+      if (data.hour<10) oled.print("0");
+      oled.print(data.hour);
+      oled.print(":");
+      if (data.minute<10) oled.print("0");
+      oled.print(data.minute);
+      oled.print(":");
+      if (data.second<10) oled.print("0");
+      oled.print(data.second);
     }
-    
-    oled.setTextSize(2);
-    oled.setTextColor(WHITE, BACKGROUND);
-    oled.setCursor(0, 46);
-    if (data.hour<10) oled.print("0");
-    oled.print(data.hour);
-    oled.print(":");
-    if (data.minute<10) oled.print("0");
-    oled.print(data.minute);
-    oled.print(":");
-    if (data.second<10) oled.print("0");
-    oled.print(data.second);
   }
   
   Wire.beginTransmission(MPU);
@@ -501,8 +553,12 @@ void loop() {
   Serial.println(last);
   if ( digitalRead(BUTTON) == LOW || (last > WAKEUPACC) ) {
     displayOnSec=0;
+    whiteonly = false;
     batteryBar();
     oled.writeCommand(SSD1331_CMD_DISPLAYON);
+    if (potival > 970) {
+      clockcolorid = (clockcolorid+1)%15;
+    }
     delay(200);
     if (digitalRead(BUTTON) == LOW && alarm == 0) alarm = -1;
   }

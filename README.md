@@ -1,6 +1,6 @@
 # HidRTCwatch
 
-feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3231M with BLE hid commands
+feather M0 with nRF52 (Bluetooth LE hid commands), RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3231M clock.
 
 - press button or shake to wake up
 - battery bar
@@ -11,6 +11,7 @@ feather M0 with nRF52, RGB oled SSD1331, MPU-6050 (Shake to wake up) and RTC DS3
 
 ## Selection
 
+- BIG CLOCK always on! (2 buttons: dim display, normal display)
 - Mouse left, right click (takes many power)
 - cursor left, right
 - cursor up, down
