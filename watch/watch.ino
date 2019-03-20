@@ -90,7 +90,7 @@ int batLength    = 30;
 #define MOD_HUI    4
 
 int ledMode = 0;
-bool whiteonly = false;
+bool whiteonly = true;
 int clockcolorid = 14;
 
 short colors[16] = {
@@ -223,6 +223,7 @@ void setup() {
   
   oled.fillScreen(BACKGROUND);
   oled.setTextSize(1);
+  oled.writeCommand(SSD1331_CMD_DISPLAYDIM);
 
   GCLK->GENDIV.reg = GCLK_GENDIV_ID(2) | GCLK_GENDIV_DIV(4);
   GCLK->GENCTRL.reg = GCLK_GENCTRL_ID(2) |
