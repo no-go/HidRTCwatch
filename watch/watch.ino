@@ -55,7 +55,7 @@ byte ledId = 0;
 
 //RTCdata data = {40,53,21, 3, 21,03,18}; // (3 == )Mittwoch, 21:53:40 Uhr 21.03.2018 //7=sonntag
 #if SET_INIT_RTC > 0
-  RTCdata data = {00,22,15, 3, 20,1,20};
+  RTCdata data = {00,47,20, 3, 20,1,20};
 #else
   RTCdata data;
 #endif
@@ -223,8 +223,9 @@ inline void pomodor() {
     pmin = 6 - (pminSET * 0.001 * potival);    
   } else if (pomodori==71) {
     oled.setTextSize(1);
-    oled.setCursor(0, 45);
-    oled.println("set long");
+    oled.setCursor(0, 36);
+    oled.println("set");
+    oled.println("long");
     oled.print("pause");
     psec = 0;
     pmin = 28 - (pminSET * 0.001 * potival);    
@@ -252,24 +253,23 @@ inline void pomodor() {
   }
 
   if (pomodori>=10) {
-    tom1(5,5);
-    if (tomoato1) tom2(5,5);
+    tom1(0,13);
+    if (tomoato1) tom2(0,13);
   }
   if (pomodori>=30) {
-    tom1(5,15);
-    if (tomoato2) tom2(5,15);
+    tom1(15,13);
+    if (tomoato2) tom2(15,13);
   }
   if (pomodori>=50) {
-    tom1(5,25);
-    if (tomoato3) tom2(5,25);
+    tom1(0,25);
+    if (tomoato3) tom2(0,25);
   }
   if (pomodori>=70) {
-    tom1(5,35);
-    if (tomoato4) tom2(5,35);
+    tom1(15,25);
+    if (tomoato4) tom2(15,25);
   }
   
   if (digitalRead(BUTTON) == LOW) {
-
     if ((pomodori%10)==1) {
       // Wecker starten
       oled.fillScreen(BLACK);
@@ -290,17 +290,27 @@ inline void pomodor() {
   }
   
   oled.setTextColor(colors[clockcolorid], BACKGROUND);
-  
+
+  oled.setTextSize(1);
+  oled.setCursor(0, 0);
+  if (data.hour<10) oled.print("0");
+  oled.print(data.hour);
+  oled.setCursor(16, 0);
+  if (data.minute<10) oled.print("0");
+  oled.print(data.minute);
+  oled.drawPixel(13, 2, colors[clockcolorid]);
+  oled.drawPixel(13, 4, colors[clockcolorid]);
+ 
   oled.setTextSize(5);
-  oled.setCursor(29, -2);
+  oled.setCursor(30, -2);
   if (pmin<10) oled.print("0");
   oled.print(pmin);
   oled.setTextSize(4);
 
   if ((pomodori%10)==1) {
-    oled.setCursor(40, 37);
+    oled.setCursor(35, 37);
   } else {
-    oled.setCursor(40, 38);
+    oled.setCursor(35, 38);
   }
   if (psec<10) oled.print("0");
   oled.print(psec);
