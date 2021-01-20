@@ -9,18 +9,19 @@ feather M0 with nRF52 (Bluetooth LE hid commands), RGB oled SSD1331, MPU-6050 (S
 
 ## Pomodoro Mode
 
-- Uhr immer an
+- Timer always seen
 
-### left, right Button and Poti
+### front, left, right button and Poti
 
-- Poti: Wecker aufziehen
-- front: Wecker starten
-- right: hell
-- left: set/clear tomato
-- Uhr noch 10min: nicht mehr weiss, sondern grün
-- Uhr noch 5min: nicht mehr grün, sondern orange
-- Uhr Pause: Blau
-- Pause max 5min, nach 4 Pomodori aber bis 25min
+- Poti: Timer adjust
+- front button: Timer start
+- right button: force Display refresh
+- left: set/clear tomato (1 tomoato for each pomodori)
+- Poti to max and right button: dim (power save) mode
+- is Timer below 10 minutes: numbers switch from white to green
+- is Timer below 5 minutes: numbers switch from green to orange
+- Color of a pause: blue
+- pause max 5 minutes, after 4 Pomodori up to 25 minutes
 
 ## Normal Mode
 

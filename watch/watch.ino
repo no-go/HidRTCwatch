@@ -55,7 +55,7 @@ byte ledId = 0;
 
 //RTCdata data = {40,53,21, 3, 21,03,18}; // (3 == )Mittwoch, 21:53:40 Uhr 21.03.2018 //7=sonntag
 #if SET_INIT_RTC > 0
-  RTCdata data = {00,22,19, 2, 19,1,20};
+  RTCdata data = {00,22,15, 3, 20,1,20};
 #else
   RTCdata data;
 #endif
@@ -279,9 +279,14 @@ inline void pomodor() {
   
   if (digitalRead(BUTTON3) == LOW) {
     oled.fillScreen(BLACK);
-    oled.writeCommand(SSD1331_CMD_DISPLAYON);
-    whiteonly = false;  
-    batteryBar();
+    if (potival > 970) {
+      oled.writeCommand(SSD1331_CMD_DISPLAYDIM);
+      whiteonly = true;        
+    } else {
+      oled.writeCommand(SSD1331_CMD_DISPLAYON);
+      whiteonly = false;  
+      batteryBar();      
+    }
   }
   
   oled.setTextColor(colors[clockcolorid], BACKGROUND);
@@ -341,17 +346,17 @@ inline void ticking() {
         pmin--;
       }
       if (pmin < 10) {
-        clockcolorid = 12;
+        if (!whiteonly) clockcolorid = 12;
       }
       if (pmin < 5) {
-        clockcolorid = 1;
+        if (!whiteonly) clockcolorid = 1;
       }
       if (pmin < 0) {
         pomodori++;
         pminSET=6;
         pmin=0;
         psec=0;
-        clockcolorid = 4;
+        if (!whiteonly) clockcolorid = 4;
       }
     } else if (pomodori == 20 || pomodori == 40 || pomodori == 60) {
       psec--;
@@ -388,17 +393,17 @@ inline void ticking() {
         pmin--;
       }
       if (pmin < 10) {
-        clockcolorid = 12;
+        if (!whiteonly) clockcolorid = 12;
       }
       if (pmin < 5) {
-        clockcolorid = 8;
+        if (!whiteonly) clockcolorid = 8;
       }
       if (pmin < 0) {
         pomodori++;
         pminSET=27;
         pmin=0;
         psec=0;
-        clockcolorid = 4;
+        if (!whiteonly) clockcolorid = 4;
       }          
     }
   }
